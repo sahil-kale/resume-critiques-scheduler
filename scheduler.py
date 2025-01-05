@@ -4,6 +4,7 @@ import argparse
 import click
 import datetime
 from enum import Enum
+import random
 
 class Critique:
     class CritiqueScheduleStatus(Enum):
@@ -28,6 +29,14 @@ class Critique:
     def schedule(self, participant):
         self.participant = participant
         self.schedule_status = Critique.CritiqueScheduleStatus.SCHEDULED
+        if self.volunteer.num_critiques == 0:
+            self.volunteer.scheduled_critiques = []
+
+        self.volunteer.scheduled_critiques.append(self)
+        
+        self.volunteer.num_critiques += 1
+        self.participant.num_critiques += 1
+        
 
     def __str__(self):
         return f"Critique {self.schedule_status}. Volunteer: {self.volunteer.name}, Participant: {self.participant.name}, Time: {self.time}"
@@ -74,14 +83,21 @@ class Scheduler:
             
             if best_open_critique:
                 best_open_critique.schedule(participant)
-                participant.num_critiques += 1
-                best_open_critique.volunteer.num_critiques += 1
             else:
                 click.secho(f"No available critiques for participant {participant.name}!", fg='red')
 
         # to account for breaks, first delete all critiques that are not scheduled
         self.schedule_matrix = [critique for critique in self.schedule_matrix if critique.schedule_status == Critique.CritiqueScheduleStatus.SCHEDULED]
         click.secho(f"Number of critiques scheduled: {len(self.schedule_matrix)}", fg='green')
+
+        for volunteer in self.event_people.volunteers:
+            if volunteer.num_critiques >= 5:
+                random_critique_index = random.randint(1, len(volunteer.scheduled_critiques) - 1)
+                for i in range(random_critique_index, len(self.schedule_matrix)):
+                    critique = self.schedule_matrix[i]
+                    critique_time = datetime.datetime.combine(datetime.datetime.today(), critique.time)
+                    critique.time = (critique_time + datetime.timedelta(minutes=15)).time()
+
 
     def calculate_score(self, participant, volunteer):
         # calculate the score for a participant and volunteer by determining the % of interests that match for both the participant and volunteer
@@ -110,6 +126,6 @@ if __name__ == '__main__':
     args = parser.parse_args()
 
     event_people = Ingest(args.volunteers, args.participants)
-    scheduler = Scheduler(event_people, "6:30 PM", "9:30 PM", 15)
+    scheduler = Scheduler(event_people, "6:30 PM", "9:15 PM", 15)
     scheduler.run()
     scheduler.print_schedule_matrix()
