@@ -1,4 +1,5 @@
 import re
+import datetime
 
 class EventParticipant :
     def __init__(self, name, program, email, interests, availability):
@@ -13,7 +14,21 @@ class EventParticipant :
         # Clean up any extra spaces
         parts = [p.strip() for p in parts]
 
-        return parts
+        avail_interval = []
+
+        for part in parts:
+            start_time, end_time = part.split(" - ")
+            start_time = datetime.datetime.strptime(start_time, "%I:%M %p").time()
+            end_time = datetime.datetime.strptime(end_time, "%I:%M %p").time()
+            avail_interval.append((start_time, end_time))
+
+        return avail_interval
+
+    def is_time_in_availability(self, time):
+        for interval in self.availability:
+            if interval[0] <= time < interval[1]:
+                return True
+        return False
 
     def convert_interests_to_string_list(self, interests):
         parts = re.split(r",(?![^()]*\))", interests)
