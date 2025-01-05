@@ -11,6 +11,14 @@ class Critique:
         SCHEDULED = 2
         NOT_AVAILABLE = 3
 
+        def __str__(self):
+            if self == Critique.CritiqueScheduleStatus.OPEN_NOT_SCHEDULED:
+                return "OPEN - NOT SCHEDULED"
+            elif self == Critique.CritiqueScheduleStatus.SCHEDULED:
+                return "SCHEDULED"
+            elif self == Critique.CritiqueScheduleStatus.NOT_AVAILABLE:
+                return "NOT AVAILABLE"
+
     def __init__(self, schedule_status, volunteer, time):
         self.schedule_status = schedule_status
         self.volunteer = volunteer
@@ -22,7 +30,7 @@ class Critique:
         self.schedule_status = Critique.CritiqueScheduleStatus.SCHEDULED
 
     def __str__(self):
-        return f"Critique {self.schedule_status}. Volunteer: {self.volunteer.name}, Participant: {self.participant}"
+        return f"Critique {self.schedule_status}. Volunteer: {self.volunteer.name}, Participant: {self.participant.name}, Time: {self.time}"
 
 
 class Scheduler:
@@ -31,24 +39,21 @@ class Scheduler:
         self.end_time = datetime.datetime.strptime(end_time, "%I:%M %p").time()
         self.event_people = event_people
         self.critique_time_interval_minutes = critique_time_interval_minutes
-        self.schedule_matrix = {}
+        self.schedule_matrix = []
 
     def run(self):
         num_schedulable_critiques = 0
         schedule_time = datetime.datetime.combine(datetime.datetime.today(), self.start_time)
         end_time_dt = datetime.datetime.combine(datetime.datetime.today(), self.end_time)
         while schedule_time < end_time_dt:
-            str_schedule_time = schedule_time.strftime("%I:%M %p")
 
-            self.schedule_matrix[str_schedule_time] = []
             for volunteer in self.event_people.volunteers:
-                critique_schedule_status = Critique.CritiqueScheduleStatus.NOT_AVAILABLE
                 if volunteer.is_time_in_availability(schedule_time.time()):
                     critique_schedule_status = Critique.CritiqueScheduleStatus.OPEN_NOT_SCHEDULED
                     num_schedulable_critiques += 1
                 
-                critique = Critique(critique_schedule_status, volunteer, schedule_time.time())
-                self.schedule_matrix[str_schedule_time].append(critique)
+                    critique = Critique(critique_schedule_status, volunteer, schedule_time.time())
+                    self.schedule_matrix.append(critique)
 
             schedule_time += datetime.timedelta(minutes=self.critique_time_interval_minutes)
         
@@ -58,21 +63,25 @@ class Scheduler:
             # iterate over the entire schedule matrix and find the best volunteer for each participant.
             best_open_critique = None
             best_score = 0
-            for _, critiques in self.schedule_matrix.items():
-                for critique in critiques:
-                    is_participant_time_available = participant.is_time_in_availability(critique.time)
-                    is_critique_open = critique.schedule_status == Critique.CritiqueScheduleStatus.OPEN_NOT_SCHEDULED
-                    if is_critique_open and is_participant_time_available:
-                        score = self.calculate_score(participant, critique.volunteer)
-                        if score > best_score:
-                            best_score = score
-                            best_open_critique = critique
+            for critique in self.schedule_matrix:
+                is_participant_time_available = participant.is_time_in_availability(critique.time)
+                is_critique_open = critique.schedule_status == Critique.CritiqueScheduleStatus.OPEN_NOT_SCHEDULED
+                if is_critique_open and is_participant_time_available:
+                    score = self.calculate_score(participant, critique.volunteer)
+                    if score > best_score:
+                        best_score = score
+                        best_open_critique = critique
             
             if best_open_critique:
                 best_open_critique.schedule(participant)
+                participant.num_critiques += 1
+                best_open_critique.volunteer.num_critiques += 1
             else:
                 click.secho(f"No available critiques for participant {participant.name}!", fg='red')
-            
+
+        # to account for breaks, first delete all critiques that are not scheduled
+        self.schedule_matrix = [critique for critique in self.schedule_matrix if critique.schedule_status == Critique.CritiqueScheduleStatus.SCHEDULED]
+        click.secho(f"Number of critiques scheduled: {len(self.schedule_matrix)}", fg='green')
 
     def calculate_score(self, participant, volunteer):
         # calculate the score for a participant and volunteer by determining the % of interests that match for both the participant and volunteer
@@ -88,14 +97,11 @@ class Scheduler:
 
         program_match = 1 if participant.program == volunteer.program else 0
 
-        return (participant_interest_common + volunteer_interest_common) * 3 + program_match
+        return (participant_interest_common + volunteer_interest_common) * 3 + program_match * 2 - volunteer.num_critiques
 
     def print_schedule_matrix(self):
-        for time, critiques in self.schedule_matrix.items():
-            click.secho(f"Time: {time}", fg='blue')
-            for critique in critiques:
-                click.echo(critique)
-
+        for critique in self.schedule_matrix:
+            click.secho(critique, fg="cyan")
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Schedule participants and volunteers for an event')
