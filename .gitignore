@@ -171,3 +171,5 @@ cython_debug/
 .pypirc
 
 resume-critiques-scheduler-venv/
+
+schedule.csv

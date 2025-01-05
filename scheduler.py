@@ -46,6 +46,7 @@ class Scheduler:
     def __init__(self, event_people, start_time, end_time, critique_time_interval_minutes):
         self.start_time = datetime.datetime.strptime(start_time, "%I:%M %p").time()
         self.end_time = datetime.datetime.strptime(end_time, "%I:%M %p").time()
+        self.scheduling_end_time = (datetime.datetime.combine(datetime.datetime.today(), self.end_time) + datetime.timedelta(minutes=15)).time()
         self.event_people = event_people
         self.critique_time_interval_minutes = critique_time_interval_minutes
         self.schedule_matrix = []
@@ -119,6 +120,34 @@ class Scheduler:
         for critique in self.schedule_matrix:
             click.secho(critique, fg="cyan")
 
+    def write_schedule_to_csv(self, filename):
+        time_header_times = []
+        time_header = []
+        current_time = datetime.datetime.combine(datetime.datetime.today(), self.start_time)
+        while current_time < datetime.datetime.combine(datetime.datetime.today(), self.scheduling_end_time):
+            time_header.append(current_time.strftime("%I:%M %p"))
+            time_header_times.append(current_time.time())
+            current_time += datetime.timedelta(minutes=self.critique_time_interval_minutes)
+
+        time_header_str = ','.join(time_header)
+
+        with open(filename, 'w') as f:
+            csv_header = f"Volunteer,{time_header_str}\n"
+            f.write(csv_header)
+            for volunteer in self.event_people.volunteers:
+                volunteer_schedule = [f"{volunteer.name}"]
+                for time in time_header_times:
+                    critique = next((c for c in self.schedule_matrix if c.time == time and c.volunteer == volunteer), None)
+                    if critique:
+                        volunteer_schedule.append(critique.participant.name)
+                    else:
+                        volunteer_schedule.append("")
+
+
+                volunteer_schedule_str = ",".join(volunteer_schedule)
+                f.write(volunteer_schedule_str)
+                f.write("\n")
+
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Schedule participants and volunteers for an event')
     parser.add_argument('volunteers', help='Path to a CSV file containing volunteers')
@@ -129,3 +158,4 @@ if __name__ == '__main__':
     scheduler = Scheduler(event_people, "6:30 PM", "9:15 PM", 15)
     scheduler.run()
     scheduler.print_schedule_matrix()
+    scheduler.write_schedule_to_csv("schedule.csv")
