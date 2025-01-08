@@ -101,7 +101,7 @@ class Scheduler:
         # Step 1: Build the schedule matrix with open slots.
         num_schedulable_critiques = self._build_schedule_matrix()
         click.secho(
-            f"Number of schedulable critiques for event: {num_schedulable_critiques}",
+            f"Number of schedulable critiques for event: {num_schedulable_critiques}. Number of participants: {len(self.event_people.participants)}",
             fg="green",
         )
 
@@ -117,6 +117,10 @@ class Scheduler:
         click.secho(
             f"Number of critiques scheduled: {len(self.schedule_matrix)}",
             fg="green",
+        )
+        click.secho(
+            f"Number of participants without a critique: {len(self.participants_without_schedule)}",
+            fg="red"
         )
 
         # Step 3: Postprocessing – for instance, apply breaks or adjust times for overbooked volunteers.
@@ -154,9 +158,10 @@ class Scheduler:
         For each participant, find the best open critique slot based on availability and a matching score,
         then schedule it if found. Otherwise, notify that no slot was found.
         """
+        self.participants_without_schedule = []
         for participant in self.event_people.participants:
             best_open_critique = None
-            best_score = 0
+            best_score = -99999
 
             for critique in self.schedule_matrix:
                 if (
@@ -172,10 +177,7 @@ class Scheduler:
             if best_open_critique:
                 best_open_critique.schedule(participant)
             else:
-                click.secho(
-                    f"No available critiques for participant {participant.name}!",
-                    fg="red",
-                )
+                self.participants_without_schedule.append(participant)
 
     def _postprocess_schedule_for_breaks(self):
         """
@@ -235,11 +237,11 @@ class Scheduler:
         for critique in self.schedule_matrix:
             click.secho(str(critique), fg="cyan")
 
-    def write_schedule_to_csv(self, filename):
+    def write_schedule_to_csv(self, schedule_filename, unavailable_filename):
         """
         Writes the schedule matrix to a CSV file with volunteers as rows and time slots as columns.
 
-        :param filename: The name of the output CSV file.
+        :param schedule_filename: The name of the output CSV file.
         """
         time_header = []
         time_header_times = []
@@ -251,7 +253,7 @@ class Scheduler:
             time_header_times.append(current_time.time())
             current_time += datetime.timedelta(minutes=self.critique_time_interval_minutes)
 
-        with open(filename, "w") as f:
+        with open(schedule_filename, "w") as f:
             f.write(f"Volunteer,{','.join(time_header)}\n")
 
             for volunteer in self.event_people.volunteers:
@@ -269,6 +271,11 @@ class Scheduler:
                     row_cells.append(participant_name)
                 f.write(",".join(row_cells) + "\n")
 
+        with open(unavailable_filename, "w") as f:
+            f.write(f"Participant,Email\n")
+            for participant in self.participants_without_schedule:
+                f.write(f"{participant.name},{participant.email}\n")
+
 
 def main():
     parser = argparse.ArgumentParser(
@@ -281,9 +288,11 @@ def main():
     event_people = Ingest(args.volunteers, args.participants)
     scheduler = Scheduler(event_people, "6:30 PM", "9:15 PM", 15)
     scheduler.run()
-    scheduler.print_schedule_matrix()
-    scheduler.write_schedule_to_csv("schedule.csv")
+    #scheduler.print_schedule_matrix()
+    scheduler.write_schedule_to_csv("schedule.csv", "unscheduled.csv")
 
 
 if __name__ == "__main__":
+    # seed random number generator for reproducibility
+    random.seed(42)
     main()

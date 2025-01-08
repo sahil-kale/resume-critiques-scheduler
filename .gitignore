@@ -173,3 +173,5 @@ cython_debug/
 resume-critiques-scheduler-venv/
 
 schedule.csv
+unscheduled.csv
+data/
