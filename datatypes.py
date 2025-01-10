@@ -2,12 +2,13 @@ import re
 import datetime
 
 class EventParticipant :
-    def __init__(self, name, program, email, interests, availability):
+    def __init__(self, name, program, email, interests, availability, dates_available):
         self.name = name
         self.program = program
         self.email = email
         self.interests = self.convert_interests_to_string_list(interests)
         self.availability = self.convert_availabilities_to_string_list(availability)
+        self.dates_available = dates_available
         self.num_critiques = 0
 
     def convert_availabilities_to_string_list(self, availabilities):

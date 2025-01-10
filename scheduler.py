@@ -228,7 +228,7 @@ class Scheduler:
         program_match = 1 if participant.program == volunteer.program else 0
 
         # We penalize a volunteer who has many critiques scheduled already by subtracting volunteer.num_critiques.
-        return (participant_interest_common + volunteer_interest_common) * 3 + program_match * 2 - volunteer.num_critiques
+        return (participant_interest_common + volunteer_interest_common) * 10 + program_match * 8 - volunteer.num_critiques * 1.5
 
     def print_schedule_matrix(self):
         """
@@ -285,7 +285,7 @@ def main():
     parser.add_argument("participants", help="Path to a CSV file containing participants")
     args = parser.parse_args()
 
-    event_people = Ingest(args.volunteers, args.participants)
+    event_people = Ingest(args.volunteers, args.participants, date_available_filter="Resume Critique 1 - Jan 13")
     scheduler = Scheduler(event_people, "6:30 PM", "9:15 PM", 15)
     scheduler.run()
     #scheduler.print_schedule_matrix()
