@@ -73,7 +73,7 @@ class Scheduler:
     then assigning participants based on matching scores and availability.
     """
 
-    def __init__(self, event_people, start_time, end_time, critique_time_interval_minutes):
+    def __init__(self, event_people, start_time, end_time, critique_time_interval_minutes, num_walkins=0):
         """
         Initializes the Scheduler.
 
@@ -93,6 +93,21 @@ class Scheduler:
 
         self.critique_time_interval_minutes = critique_time_interval_minutes
         self.schedule_matrix = []  # Stores all Critique objects
+        self.num_walkins = num_walkins
+
+        for i in range(num_walkins):
+            walkin_participant = EventParticipant(
+                f"Walkin {i}",
+                "",
+                "",
+                "",
+                "6:30 PM - 7:30 PM, 7:30 PM - 8:30 PM, 8:30 PM - 9:30 PM",
+                "Resume Critique 1 - Jan 13",
+            )
+
+            self.event_people.participants.append(walkin_participant)
+
+
 
     def run(self):
         """
@@ -228,7 +243,7 @@ class Scheduler:
         program_match = 1 if participant.program == volunteer.program else 0
 
         # We penalize a volunteer who has many critiques scheduled already by subtracting volunteer.num_critiques.
-        return (participant_interest_common + volunteer_interest_common) * 10 + program_match * 8 - volunteer.num_critiques * 1.5
+        return (participant_interest_common + volunteer_interest_common) * 10 + program_match * 10 - volunteer.num_critiques * 1.5
 
     def print_schedule_matrix(self):
         """
@@ -283,10 +298,11 @@ def main():
     )
     parser.add_argument("volunteers", help="Path to a CSV file containing volunteers")
     parser.add_argument("participants", help="Path to a CSV file containing participants")
+    parser.add_argument("--num_walkins", type=int, default=0, help="Number of walk-in participants")
     args = parser.parse_args()
 
     event_people = Ingest(args.volunteers, args.participants, date_available_filter="Resume Critique 1 - Jan 13")
-    scheduler = Scheduler(event_people, "6:30 PM", "9:15 PM", 15)
+    scheduler = Scheduler(event_people, "6:30 PM", "8:45 PM", 15, num_walkins=args.num_walkins)
     scheduler.run()
     #scheduler.print_schedule_matrix()
     scheduler.write_schedule_to_csv("schedule.csv", "unscheduled.csv")

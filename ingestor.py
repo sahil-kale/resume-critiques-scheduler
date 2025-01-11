@@ -33,6 +33,7 @@ def Ingest(volunteer_filepath, critiquees_filepath, date_available_filter) -> Ev
     
     # only return event volunteers and participants if the dates available is "Resume Critique 1 - Jan 13"
     event_people.participants = [p for p in event_people.participants if p.dates_available == date_available_filter]
+    #event_people.volunteers = [v for v in event_people.volunteers if v.dates_available == date_available_filter]
 
     return event_people
 
